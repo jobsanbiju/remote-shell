@@ -1,120 +1,50 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Remote Terminal</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css">
   <style>
     body {
       margin: 0;
-      padding: 0;
-      font-family: 'Fira Code', monospace;
       background: #1e1e1e;
       color: white;
+      font-family: monospace;
     }
-
-    .wrapper {
-      max-width: 960px;
-      margin: 30px auto;
-      padding: 0 20px;
-    }
-
-    h1 {
-      margin-bottom: 10px;
-      color: #c7c7c7;
-    }
-
-    #controls {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-
-    input {
-      flex-grow: 1;
-      padding: 10px;
-      font-size: 14px;
-      background: #2d2d2d;
-      color: white;
-      border: 1px solid #555;
-      border-radius: 4px;
-    }
-
-    button {
-      padding: 10px 16px;
-      font-size: 14px;
-      background: #0e639c;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background: #1177bb;
-    }
-
     #terminal {
-      height: 65vh;
-      background: black;
-      border: 1px solid #333;
-      border-radius: 6px;
-      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
     }
   </style>
 </head>
 <body>
-  <div class="wrapper">
-    <h1>🖥 Remote Terminal</h1>
-    <div id="controls">
-      <input id="wss-url" placeholder="wss://your-tunnel.trycloudflare.com" />
-      <button id="connectBtn">Connect</button>
-    </div>
-    <div id="terminal"></div>
-  </div>
-
+  <div id="terminal"></div>
   <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
   <script>
-    const term = new Terminal({ cursorBlink: true, fontFamily: 'Fira Code, monospace', fontSize: 14 });
+    const term = new Terminal({ cursorBlink: true });
     term.open(document.getElementById("terminal"));
     term.focus();
 
-    const connectBtn = document.getElementById("connectBtn");
-    connectBtn.addEventListener("click", () => {
-      const url = document.getElementById("wss-url").value.trim();
-      if (!url.startsWith("wss://")) {
-        term.writeln("❌ Invalid URL. Must start with wss://");
-        return;
+    // Replace with your Zero Trust WSS URL
+    const socket = new WebSocket("wss://remote-shell.jsan3d.cloudflareaccess.com");
+
+    socket.onopen = () => {
+      term.focus();
+    };
+
+    socket.onmessage = (event) => {
+      term.write(event.data);
+    };
+
+    term.onData((data) => {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(data);
       }
-
-      const password = prompt("🔐 Enter terminal password:");
-      if (!password) {
-        term.writeln("❌ Cancelled.");
-        return;
-      }
-
-      const socket = new WebSocket(url);
-
-      socket.onopen = () => {
-        socket.send(password); // send password as first message
-        term.focus();
-      };
-
-      socket.onmessage = (e) => {
-        term.write(e.data);
-      };
-
-      socket.onclose = () => {
-        term.writeln("\r\n🔌 Connection closed.");
-      };
-
-      term.onData((data) => {
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.send(data);
-        }
-      });
     });
+
+    socket.onclose = () => {
+      term.writeln("\r\n🔌 Disconnected.");
+    };
   </script>
 </body>
 </html>
