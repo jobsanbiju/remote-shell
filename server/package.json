@@ -1,0 +1,13 @@
+{
+  "name": "remote-shell",
+  "version": "1.0.0",
+  "description": "Web-based remote shell over WebSocket",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "node-pty": "^0.11.0",
+    "ws": "^8.12.0"
+  }
+}

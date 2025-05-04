@@ -1,50 +1,75 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8">
   <title>Remote Terminal</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css">
+  <script src="https://unpkg.com/xterm/lib/xterm.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/xterm/css/xterm.css" />
   <style>
     body {
-      margin: 0;
-      background: #1e1e1e;
+      background-color: #1e1e1e;
       color: white;
-      font-family: monospace;
+      font-family: 'Fira Code', monospace;
+      text-align: center;
+      margin: 0;
+      padding: 0;
     }
+
+    h1 {
+      margin-top: 20px;
+    }
+
     #terminal {
-      width: 100vw;
-      height: 100vh;
+      width: 90%;
+      height: 500px;
+      margin: 20px auto;
+    }
+
+    input[type="text"] {
+      width: 60%;
+      padding: 8px;
+      border: none;
+      border-radius: 4px;
+    }
+
+    button {
+      padding: 8px 16px;
+      margin-left: 8px;
+      border: none;
+      border-radius: 4px;
+      background-color: #007acc;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #005a9e;
     }
   </style>
 </head>
 <body>
+  <h1>Remote Terminal</h1>
+  <input type="text" id="wss" placeholder="wss://your-link.trycloudflare.com" />
+  <button onclick="connect()">Connect</button>
   <div id="terminal"></div>
-  <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
+
   <script>
-    const term = new Terminal({ cursorBlink: true });
-    term.open(document.getElementById("terminal"));
-    term.focus();
+    const term = new Terminal();
+    term.open(document.getElementById('terminal'));
+    let socket;
 
-    // Replace with your Zero Trust WSS URL
-    const socket = new WebSocket("wss://remote-shell.jsan3d.cloudflareaccess.com");
+    function connect() {
+      const url = document.getElementById('wss').value;
+      socket = new WebSocket(url);
 
-    socket.onopen = () => {
-      term.focus();
-    };
+      socket.onopen = () => {
+        term.write('\x1b[32m✔️ Connected to shell\x1b[0m\r\n');
+        term.onData(data => socket.send(data));
+      };
 
-    socket.onmessage = (event) => {
-      term.write(event.data);
-    };
-
-    term.onData((data) => {
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(data);
-      }
-    });
-
-    socket.onclose = () => {
-      term.writeln("\r\n🔌 Disconnected.");
-    };
+      socket.onmessage = event => term.write(event.data);
+      socket.onclose = () => term.write('\r\n\x1b[31m❌ Connection closed\x1b[0m\r\n');
+    }
   </script>
 </body>
 </html>
