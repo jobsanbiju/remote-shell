@@ -1,95 +1,103 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
   <title>Remote Terminal</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet">
   <style>
     body {
       margin: 0;
-      background-color: #1e1e1e;
-      color: #cccccc;
-      font-family: Consolas, monospace;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
+      padding: 0;
+      font-family: 'Fira Code', monospace;
+      background: #1e1e1e;
+      color: white;
     }
-    header {
-      background-color: #333;
-      padding: 1rem;
-      text-align: center;
-      font-size: 1.4rem;
-      color: #d4d4d4;
-      border-bottom: 1px solid #444;
+
+    .wrapper {
+      max-width: 960px;
+      margin: 30px auto;
+      padding: 0 20px;
     }
+
+    h1 {
+      margin-bottom: 10px;
+      color: #c7c7c7;
+    }
+
     #controls {
       display: flex;
-      justify-content: center;
-      padding: 0.5rem;
-      background-color: #252526;
-      border-bottom: 1px solid #444;
+      gap: 10px;
+      margin-bottom: 16px;
     }
-    #socketInput {
-      width: 60%;
-      padding: 0.5rem;
-      border: none;
-      border-radius: 4px 0 0 4px;
-      outline: none;
-    }
-    #connectBtn {
-      padding: 0.5rem 1rem;
-      border: none;
-      background-color: #007acc;
+
+    input {
+      flex-grow: 1;
+      padding: 10px;
+      font-size: 14px;
+      background: #2d2d2d;
       color: white;
-      font-weight: bold;
-      border-radius: 0 4px 4px 0;
+      border: 1px solid #555;
+      border-radius: 4px;
+    }
+
+    button {
+      padding: 10px 16px;
+      font-size: 14px;
+      background: #0e639c;
+      color: white;
+      border: none;
+      border-radius: 4px;
       cursor: pointer;
     }
+
+    button:hover {
+      background: #1177bb;
+    }
+
     #terminal {
-      flex-grow: 1;
-      padding: 1rem;
+      height: 65vh;
+      background: black;
+      border: 1px solid #333;
+      border-radius: 6px;
       overflow: hidden;
     }
   </style>
 </head>
 <body>
-  <header>
-    <span style="margin-right: 0.5rem;">🖥️</span> Remote Terminal
-  </header>
-  <div id="controls">
-    <input id="socketInput" placeholder="wss://...trycloudflare.com" />
-    <button id="connectBtn">Connect</button>
+  <div class="wrapper">
+    <h1>🖥 Remote Terminal</h1>
+    <div id="controls">
+      <input id="wss-url" placeholder="wss://your-tunnel.trycloudflare.com" />
+      <button id="connectBtn">Connect</button>
+    </div>
+    <div id="terminal"></div>
   </div>
-  <div id="terminal"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
   <script>
-    const socketInput = document.getElementById("socketInput");
-    const connectBtn = document.getElementById("connectBtn");
-    const term = new Terminal({
-      cursorBlink: true,
-      theme: {
-        background: '#1e1e1e',
-        foreground: '#cccccc',
-        cursor: '#ffffff',
-      }
-    });
-    const fitAddon = new FitAddon.FitAddon();
-    term.loadAddon(fitAddon);
+    const term = new Terminal({ cursorBlink: true, fontFamily: 'Fira Code, monospace', fontSize: 14 });
     term.open(document.getElementById("terminal"));
-    fitAddon.fit();
+    term.focus();
 
-    let socket;
-
+    const connectBtn = document.getElementById("connectBtn");
     connectBtn.addEventListener("click", () => {
-      if (socket) socket.close();
+      const url = document.getElementById("wss-url").value.trim();
+      if (!url.startsWith("wss://")) {
+        term.writeln("❌ Invalid URL. Must start with wss://");
+        return;
+      }
 
-      socket = new WebSocket(socketInput.value.replace(/^http/, "ws"));
+      const password = prompt("🔐 Enter terminal password:");
+      if (!password) {
+        term.writeln("❌ Cancelled.");
+        return;
+      }
+
+      const socket = new WebSocket(url);
 
       socket.onopen = () => {
-        term.write("\x1b[1;32m\u2705Connected to shell\x1b[0m\r\n");
+        socket.send(password); // send password as first message
         term.focus();
       };
 
@@ -98,18 +106,15 @@
       };
 
       socket.onclose = () => {
-        term.write("\r\n\x1b[1;31m\u274CConnection closed\x1b[0m\r\n");
+        term.writeln("\r\n🔌 Connection closed.");
       };
 
       term.onData((data) => {
-        if (socket && socket.readyState === WebSocket.OPEN) {
+        if (socket.readyState === WebSocket.OPEN) {
           socket.send(data);
         }
       });
     });
-
-    window.addEventListener('resize', () => fitAddon.fit());
-    setTimeout(() => term.focus(), 100);
   </script>
 </body>
 </html>
