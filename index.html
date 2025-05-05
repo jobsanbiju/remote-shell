@@ -3,105 +3,83 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Remote Shell</title>
-  <link href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" rel="stylesheet" />
+  <title>Remote Terminal</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
   <style>
     body {
       margin: 0;
-      font-family: "Fira Code", monospace;
       background-color: #1e1e1e;
-      color: #fff;
+      color: white;
+      font-family: monospace;
     }
     #terminal {
-      height: 100vh;
-      width: 100vw;
-      padding: 10px;
+      height: 90vh;
+      width: 100%;
     }
-    #authModal {
-      position: absolute;
-      top: 0;
-      left: 0;
-      height: 100vh;
-      width: 100vw;
-      background: rgba(0, 0, 0, 0.85);
+    #header {
+      padding: 10px;
+      background-color: #2d2d2d;
       display: flex;
-      flex-direction: column;
-      justify-content: center;
       align-items: center;
     }
-    #authModal input {
-      padding: 10px;
-      font-size: 1rem;
-      margin: 5px;
-      border: none;
-      border-radius: 5px;
-      background: #333;
-      color: #fff;
-    }
-    #authModal button {
-      margin-top: 10px;
-      padding: 10px 20px;
-      background: #007acc;
-      border: none;
+    #header input {
+      flex: 1;
+      margin-right: 10px;
+      padding: 5px;
+      background-color: #1e1e1e;
       color: white;
-      border-radius: 5px;
+      border: 1px solid #444;
+    }
+    #header button {
+      padding: 5px 15px;
+      background-color: #007acc;
+      color: white;
+      border: none;
       cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <div id="authModal">
-    <input type="text" id="username" placeholder="Username" />
-    <input type="password" id="password" placeholder="Password" />
-    <button onclick="connect()">Login</button>
+  <div id="header">
+    <input type="text" id="wsUrl" placeholder="wss://example.trycloudflare.com" />
+    <button onclick="connect()">Connect</button>
   </div>
   <div id="terminal"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.min.js"></script>
   <script>
-    const term = new Terminal({
-      theme: {
-        background: "#1e1e1e",
-        foreground: "#ffffff"
-      },
-      fontFamily: "Fira Code, monospace",
-      cursorBlink: true
-    });
-
-    term.open(document.getElementById("terminal"));
-
+    let term = new Terminal();
+    term.open(document.getElementById('terminal'));
     let socket;
 
     function connect() {
-      const username = document.getElementById("username").value;
-      const password = document.getElementById("password").value;
-      document.getElementById("authModal").style.display = "none";
+      const wsUrl = document.getElementById("wsUrl").value;
+      socket = new WebSocket(wsUrl);
 
-      socket = new WebSocket("ws://localhost:3000");
+      socket.onopen = () => {
+        term.write("🔗 Connected to shell\r\n");
+      };
 
-      socket.addEventListener("open", () => {
-        socket.send(JSON.stringify({ type: "auth", username, password }));
-        term.write("🔐 Authenticating...\r\n");
-      });
-
-      socket.addEventListener("message", (event) => {
-        const msg = JSON.parse(event.data);
-        if (msg.type === "auth" && msg.status === "success") {
-          term.write("✅ Authenticated. Welcome!\r\n");
-        } else if (msg.type === "auth" && msg.status === "failure") {
-          term.write("❌ Authentication failed.\r\n");
-          socket.close();
-        } else if (msg.type === "data") {
-          term.write(msg.data);
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "auth") {
+            term.write(data.message + "\r\n");
+          } else if (data.type === "shell") {
+            term.write(data.message);
+          }
+        } catch (err) {
+          // If message isn't JSON, print it raw
+          term.write(event.data);
         }
-      });
+      };
+
+      socket.onclose = () => {
+        term.write("\r\n❌ Disconnected.\r\n");
+      };
 
       term.onData(data => {
-        socket.send(JSON.stringify({ type: "data", data }));
-      });
-
-      socket.addEventListener("close", () => {
-        term.write("\r\n🔌 Connection closed.\r\n");
+        socket.send(data);
       });
     }
   </script>
