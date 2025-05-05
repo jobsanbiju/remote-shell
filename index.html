@@ -2,119 +2,108 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Remote Terminal</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Remote Shell</title>
+  <link href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" rel="stylesheet" />
   <style>
     body {
       margin: 0;
-      padding: 0;
-      font-family: 'Fira Code', monospace;
-      background: #1e1e1e;
-      color: white;
+      font-family: "Fira Code", monospace;
+      background-color: #1e1e1e;
+      color: #fff;
     }
-
-    .wrapper {
-      max-width: 960px;
-      margin: 30px auto;
-      padding: 0 20px;
-    }
-
-    h1 {
-      margin-bottom: 10px;
-      color: #c7c7c7;
-    }
-
-    #controls {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-
-    input {
-      flex-grow: 1;
-      padding: 10px;
-      font-size: 14px;
-      background: #2d2d2d;
-      color: white;
-      border: 1px solid #555;
-      border-radius: 4px;
-    }
-
-    button {
-      padding: 10px 16px;
-      font-size: 14px;
-      background: #0e639c;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background: #1177bb;
-    }
-
     #terminal {
-      height: 65vh;
-      background: black;
-      border: 1px solid #333;
-      border-radius: 6px;
-      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      padding: 10px;
+    }
+    #authModal {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      width: 100vw;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    #authModal input {
+      padding: 10px;
+      font-size: 1rem;
+      margin: 5px;
+      border: none;
+      border-radius: 5px;
+      background: #333;
+      color: #fff;
+    }
+    #authModal button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      background: #007acc;
+      border: none;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <div class="wrapper">
-    <h1>🖥 Remote Terminal</h1>
-    <div id="controls">
-      <input id="wss-url" placeholder="wss://your-tunnel.trycloudflare.com" />
-      <button id="connectBtn">Connect</button>
-    </div>
-    <div id="terminal"></div>
+  <div id="authModal">
+    <input type="text" id="username" placeholder="Username" />
+    <input type="password" id="password" placeholder="Password" />
+    <button onclick="connect()">Login</button>
   </div>
+  <div id="terminal"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
   <script>
-    const term = new Terminal({ cursorBlink: true, fontFamily: 'Fira Code, monospace', fontSize: 14 });
+    const term = new Terminal({
+      theme: {
+        background: "#1e1e1e",
+        foreground: "#ffffff"
+      },
+      fontFamily: "Fira Code, monospace",
+      cursorBlink: true
+    });
+
     term.open(document.getElementById("terminal"));
-    term.focus();
 
-    const connectBtn = document.getElementById("connectBtn");
-    connectBtn.addEventListener("click", () => {
-      const url = document.getElementById("wss-url").value.trim();
-      if (!url.startsWith("wss://")) {
-        term.writeln("❌ Invalid URL. Must start with wss://");
-        return;
-      }
+    let socket;
 
-      const password = prompt("🔐 Enter terminal password:");
-      if (!password) {
-        term.writeln("❌ Cancelled.");
-        return;
-      }
+    function connect() {
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+      document.getElementById("authModal").style.display = "none";
 
-      const socket = new WebSocket(url);
+      socket = new WebSocket("ws://localhost:3000");
 
-      socket.onopen = () => {
-        socket.send(password); // send password as first message
-        term.focus();
-      };
+      socket.addEventListener("open", () => {
+        socket.send(JSON.stringify({ type: "auth", username, password }));
+        term.write("🔐 Authenticating...\r\n");
+      });
 
-      socket.onmessage = (e) => {
-        term.write(e.data);
-      };
-
-      socket.onclose = () => {
-        term.writeln("\r\n🔌 Connection closed.");
-      };
-
-      term.onData((data) => {
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.send(data);
+      socket.addEventListener("message", (event) => {
+        const msg = JSON.parse(event.data);
+        if (msg.type === "auth" && msg.status === "success") {
+          term.write("✅ Authenticated. Welcome!\r\n");
+        } else if (msg.type === "auth" && msg.status === "failure") {
+          term.write("❌ Authentication failed.\r\n");
+          socket.close();
+        } else if (msg.type === "data") {
+          term.write(msg.data);
         }
       });
-    });
+
+      term.onData(data => {
+        socket.send(JSON.stringify({ type: "data", data }));
+      });
+
+      socket.addEventListener("close", () => {
+        term.write("\r\n🔌 Connection closed.\r\n");
+      });
+    }
   </script>
 </body>
 </html>
