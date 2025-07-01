@@ -10,4 +10,3 @@ cloudflared tunnel --url http://localhost:3000
 
 echo "Cleaning up..."
 kill $server_pid
-
