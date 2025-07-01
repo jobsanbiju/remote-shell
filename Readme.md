@@ -2,7 +2,7 @@
 
 **Remote-Shell** is a lightweight, browser-based Linux shell interface that runs securely over Cloudflare Tunnels. It enables users to access and interact with their Linux terminal remotely from any device with a modern web browser.
 
-> **Status:** Phase 1 Testing – functionality is limited and under active development.
+> **Status:** Phase 1 Testing – functionality is limited and under active development.  
 
 ---
 
